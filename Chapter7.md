@@ -51,8 +51,8 @@ Out[18]: True
 
 ![对象之间的关系.png](http://upload-images.jianshu.io/upload_images/286774-3ba957cce94e713c.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-##2 class对象和instance对象
-###2.1 slot和descriptor
+## 2 class对象和instance对象
+### 2.1 slot和descriptor
 Python中的class对象都是PyTypeObject结构体类型变量，比如type对应在C实现中是PyType_Type，int对应则是PyInt_Type。int的类型是type，但是比较特殊的type，它的类型是自己，如下所示。当然它们的基类都是object。
 
 ```
@@ -82,7 +82,7 @@ Python在初始化class对象时会填充tp_dict，这个tp_dict会用来搜索�
    'Python'
 ```
 
-###2.2 MRO简析
+### 2.2 MRO简析
 MRO是指python中的属性解析顺序，因为Python不像Java，Python支持多继承，所以需要设置解析属性的顺序。MRO搜索规则如下:
 
 - 1)先从当前class出发，比如下面就是先获取D，发现D的mro列表tp_mro没有D，则放入D。
@@ -115,7 +115,7 @@ d = D()
 d.show()
 ```
 
-###2.3 class对象和instance对象的```__dict__```
+### 2.3 class对象和instance对象的```__dict__```
 观察class对象和instance对象的__dict__，如下代码可以看到结果，class对象的__dict__对应的类的属性，而instance对象的__dict__则是存储的实例变量。
 
 ```
@@ -144,7 +144,7 @@ print a
 A
 ```
 
-###2.4 成员函数
+### 2.4 成员函数
 调用成员函数时，其实原理与前一篇分析的函数原理基本一致，只是在类中对PyFunctionObject包装了一层，封装成了PyMethodObject对象，这个对象除了PyFunctionObject对象本身，还新增了class对象和成员函数调用的self参数。PyFunctionObject和一个instance对象通过PyMethodObject对象结合在一起的过程就成为成员函数的绑定。成员函数调用时与一般函数调用机制类似，a.f()函数调用实质就是带了一个位置参数(instance对象a)的一般函数调用。
 
 ```
@@ -157,7 +157,7 @@ print A.f # <unbound method A.f>
 print a.f # <bound method A.f of <__main__.A object at 0x10d8616d0>>
 ```
 
-##3 Python属性选择算法
+## 3 Python属性选择算法
 再谈到属性选择算法之前，需要再说明下descriptor。descriptor分为两种，如下:
 
 - data descriptor: type中定义了__get__和__set__的descriptor。
