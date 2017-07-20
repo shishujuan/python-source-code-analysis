@@ -1,12 +1,12 @@
-#Python源码剖析笔记4-内建数据类型
+# Python源码剖析笔记4-内建数据类型
 > Python内建数据类型包括整数对象PyIntObject，字符串对象PyStringObject，列表对象PyListObject以及字典对象PyDictObject等。整数对象之前已经分析过了，这一篇文章准备分析下余下几个对象，这次在《python源码剖析》中已经写的很详细的部分就不赘述了，主要是总结一些之前看书时疑惑的地方。
 
-##1 整数对象-PyIntObject
+## 1 整数对象-PyIntObject
 参见 [python整数对象](http://www.jianshu.com/p/0136ed90cd46)。
 
 
-##2 字符串对象-PyStringObject
-###2.1 基本定义
+## 2 字符串对象-PyStringObject
+### 2.1 基本定义
 python中的字符串对象PyStringObject，对应的类型对象是PyString_Type。PyStringObject对象的定义如下：
 
 ```
@@ -34,7 +34,7 @@ typedef struct {
 ```
 字符串长度在头部PyObject_VAR_HEAD的ob_size字段中维护，而ob_sval则是指向一段长度为ob_size+1个字节的内存，比如字符串'hello'，ob_size=5，而ob_sval长度为6，ob_sval[6] = '\0'。 ob_sstate是字符串状态，标示字符串是否经过intern机制处理。ob_shash是字符串的哈希值，在字典以及字符串比较等多处有用到这个哈希值。
 
-###2.2 字符串interned机制
+### 2.2 字符串interned机制
 
 当然在字符串对象中一个比较重要的就是intern机制。那么问题来了，什么样的字符串才会interned呢？实验一下先，可以发现如果字符串有空格是不会被interned的，实际上，字符串中的字符必须都是属于```"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz"```才会interned。例子中的```hello world```因为有空格不在interned字符集中，所以该字符串不会interned。这个是在构建PyCodeObject对象的时候进行的。之前已经分析过，python的py文件需要编译成字节码执行，当然直接执行和import导入模块有所不同，不过都会构建PyCodeObject对象。在构建PyCodeObject对象函数PyCode_New(Objects/codeObject.c文件)中，会执行变量名、常量等字符串的interned操作。
 
@@ -101,11 +101,11 @@ def test():
 00000123
 ```
 
-###2.3 字符串拼接效率问题
+### 2.3 字符串拼接效率问题
 另外一个需要注意的就是字符串拼接的效率问题。如果是简单的 ```s1+s2+s3```这样拼接，那么每次拼接都要分配一次内存，这样需要分配两次内存。而如果通过```''.join([s1, s2, s3])```来拼接，则只需要分配一次内存，在拼接字符串较多的时候，通过join操作拼接字符串效率会有大幅提高。
 
 
-##3 列表对象-PyListObject
+## 3 列表对象-PyListObject
 Python中的List对象实现有点类似STL中的vector，依托的是数组形式来实现列表。定义如下：
 
 ```
@@ -134,7 +134,7 @@ list[0] = 1 #错误
 还是继续刚刚那个栗子，现在有列表list=[1]，然后执行list.append(2)，此时ob_size=2，而根据上面的策略，allocated调整为5.再执行list.append(3)插入3，则此时ob_size=3，而allocated=5不变。如果接着list.remove(2)，则ob_size=2，allocated=5不变。此时如果再执行list.remove(3)，则根据上面的调整公式，ob_size=1，allocated减小到4。
 
 
-##4 字典对象-PyDictObject
+## 4 字典对象-PyDictObject
 python字典对象采用的散列冲突解决方法为开放定址法，不同于STL中的开链法。python采用的开放定址法在发生散列冲突时，会根据一个冲突探测函数计算下一个探测的位置，直到找到一个不冲突的位置。而在删除元素的时候，并不会直接删除，而是设置一个dummy标记，这样可以保证在冲突探测的时候不出错，此外这个dummy标记的元素下次插入新元素时可以被再次利用。
 
 字典中的一个键值对称为一个entry，字典由PyDictEntry的数组构成。定义如下：
