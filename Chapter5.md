@@ -2,7 +2,7 @@
 
 > python中经常用到模块，比如```import xxx,from xxx import yyy```这样子，里面的机制也是需要好好探究一下的，这次主要从黑盒角度来探测模块机制，源码分析点到为止，详尽的源码分析见陈儒大神的《python源码剖析》第14章。
 
-#1 如何导入模块
+# 1 如何导入模块
 首先来看一个导入模块的例子。创建一个文件夹demo5，文件夹中有如下几个文件。
 
 ```
@@ -28,7 +28,7 @@ import math
 ```
 好了，问题来了，当我在demo5目录运行```python test.py```的时候，会打印什么结果呢？sys模块和math模块会调用demo5目录下面的还是系统本身的模块呢？结果是只打印出了```my math```，也就是说，sys模块并不是导入的demo5目录下面的sys模块。但是，如果我们不是直接运行test.py，而是导入整个包呢？结果大为不同，当我们在demo5上层目录执行```import demo5```时，可以发现打印出了```my sys```和```my math```，也就是说，导入的都是demo5目录下面的两个模块。出现这两个不同结果就是python模块和包导入机制导致的。下面来分析下python模块和包导入机制。
 
-#2 Python模块和包导入原理
+# 2 Python模块和包导入原理
 python模块和包导入函数调用路径是```builtin___import__->import_module_level->load_next->import_submodule->find_module->load_module```，本文不打算分析所有的函数，只摘出几处关键代码分析。
 
 ```builtin___import__```函数解析import参数，比如```import xxx```和```from yyy import xxx```解析后获取的参数是不一样的。然后通过```import_module_level```函数解析模块和包的树状结构，并调用```load_next```来导入模块。而```load_next```调用```import_submodule```来查找并导入模块。注意到如果是从包里面导入模块的话，```load_next```会**先用包含包名的完整模块名**调用```import_submodule```来寻找并导入模块，如果找不到，则只用模块名来寻找并导入模块。```import_submodule```会先根据**模块完整名fullname**来判断是否是系统模块，即之前说过的sys.modules是否有该模块，比如sys，os等模块，如果是系统模块，则直接返回对应模块。否则根据模块路径调用```find_module```搜索模块并调用```load_module```函数导入模块。注意到如果不是从包中导入模块，find_module中会判断模块是否是内置模块或者扩展模块(注意到这里的内置模块和扩展模块是指不常用的系统模块，比如imp和math模块等)，如果是则直接初始化该内置模块并加入到之前的备份模块集合extensions中。否则需要先后搜索模块包的路径和系统默认路径是否有该模块，如果都没有搜索到该模块，则报错。找到了模块，则初始化模块并将模块引用加入到```sys.modules```中。
@@ -145,7 +145,7 @@ KeyError: 'b'
 - import foobar.a as A
 这种情况sys.modules中还是foobar和foobar.a，而local名字空间只有A，没有foobar，更没有foobar.a。如果我们执行```del A```删除符号A，则名字空间不在有符号A，但是在sys.modules中还是存在foobar和foobar.a的。
 
-#4 其他
+# 4 其他
 需要提到的一点是，如果我们修改了某个py文件，然后reload该模块，则删除的符号并不会更新，而只是会加入新增加的符号或者更新已经有的符号。比如下面这个例子，我们加入 b = 2后reload模块reloadtest，可以看到模块中多了符号b，而我们删除b = 2加入c=3后，发现符号b还是在模块reloadtest中，并没有删除。这是python内部reload机制决定的，在reload操作时，python内部实现是找到原模块的字典，并更新或添加符号，并不删除原有的符号。
 ```
 #初始代码 a = 1
