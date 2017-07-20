@@ -60,7 +60,7 @@ if __name__ == "__main__":
 0000012c
 ```
 
-##2.PyCodeObject结构
+## 2.PyCodeObject结构
 PyCodeObject格式如下：
 
 ![](http://tech.uc.cn/wp-content/uploads/2013/08/pycfmt.png)
@@ -68,7 +68,7 @@ PyCodeObject格式如下：
 这个图片转自UC技术博客，参见参考资料1。当然这个图片还有些字段没有写出来，比如co_names, co_varnames, co_freevars, co_cellvars,co_filename, co_name, co_firstlineno, co_lnotab。
 
 
-##3.Pyc格式解析
+## 3.Pyc格式解析
 
 首先4个字节是magic number，03f30d0a 其中0d0a就是\r\n了接下来4个字节是时间，这里是d2e73855，注意到是小端模式，所以实际是0x5538e7d2,可以发现是我开始编译的时间。然后就是PyCodeObject对象了。首先是对象标识TYPE_CODE，也就是字符c，值为99，即0x63.然后4个字节是全局code block的位置参数个数co_argument，这里是0.再接着4个字节是全局code block中的局部变量个数co_nlocals，这里是0.接着4个字节是code block需要的栈空间co_stacksize，这里值为1.然后4个字节是co_flags，这里是64.
 
@@ -163,6 +163,6 @@ In [62]: dis.dis(func)
 全局code object从co_consts[2]开始,这是None，如前面一样，标示为0x4e。接着就是co_names，co_varnames等，分析跟前面func的类似，不再赘述。注意的是这里的co_names对应的's'和’func'类型不再是TYPE_INTERNED，而是TYPE_STRINGREF('R'),值是0x52.还有就是co_lnotab是0x06020904。
 
 
-##4.参考资料
+## 4.参考资料
 - [Python程序的执行原理](http://tech.uc.cn/?p=1932)(好文，精简到位，抓住了重点)
 - 陈儒《Python源码剖析》(内容很多，有时间值得慢慢研究的好书)
