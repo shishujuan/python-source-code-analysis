@@ -2,13 +2,13 @@
 
 > 之前写了几篇源码剖析笔记，然而慢慢觉得没有从一个宏观的角度理解python执行原理的话，从底向上分析未免太容易让人疑惑，不如先从宏观上对python执行原理有了一个基本了解，再慢慢探究细节，这样也许会好很多。这也是最近这么久没有更新了笔记了，一直在看源码剖析书籍和源码，希望能够从一个宏观层面理清python执行原理。人说读书从薄读厚，再从厚读薄方是理解了真意，希望能够达到这个境地吧，加了个油。
 
-#1 Python运行环境初始化
+# 1 Python运行环境初始化
 在看怎么执行之前，先要简单的说明一下python的运行时环境初始化。python中有一个解释器状态对象PyInterpreterState用于模拟进程（后面简称进程对象），另外有一个线程状态对象PyThreadState模拟线程（后面简称线程对象）。python中的PyInterpreterState结构通过一个链表链接起来，用于模拟操作系统多进程。进程对象中有一个指针指向线程集合，线程对象则有一个指针指向其对应的进程对象，这样线程和进程就关联了起来。当然，还少不了一个当前运行线程对象_PyThreadState_Current用来维护当前运行的线程。
 
-##1.1 进程线程初始化
+## 1.1 进程线程初始化
 python中调用PyInitialize()函数来完成运行环境初始化。在初始化函数中，会创建进程对象interp以及线程对象并在进程对象和线程对象建立关联，并设置当前运行线程对象为刚创建的线程对象。接下来是类型系统初始化，包括int，str，bool，list等类型初始化，这里留到后面再慢慢分析。然后，就是另外一个大头，那就是系统模块初始化。进程对象interp中有一个modules变量用于维护所有的模块对象,modules变量为字典对象，其中维护(name, module)对应关系，在python中对应着sys.modules。
 
-##1.2 模块初始化
+## 1.2 模块初始化
 系统模块初始化过程会初始化 ```__builtin__, sys, __main__, site```等模块。在python中，模块对象是以PyModuleObject结构体存在的，除了通用的对象头部，其中就只有一个字典字段md_dict。模块对象中的md_dict字段存储的内容是我们很熟悉的,比如```__name__, __doc__```等属性，以及模块中的方法等。
 
 在```__builtin__```模块初始化中，md_dict中存储的内容就包括内置函数以及系统类型对象，如len,dir,getattr等函数以及int,str,list等类型对象。正因为如此，我们才能在代码中直接用len函数，因为根据LEGB规则，我们能够在```__builtin__```模块中找到len这个符号。几乎同样的过程创建```sys```模块以及```__main__```模块。创建完成后，进程对象```interp->builtins```会被设置为```__builtin__```模块的md_dict字段，即模块对象中的那个字典字段。而```interp->sysdict```则是被设置为sys模块的md_dict字段。
@@ -45,7 +45,7 @@ Out[19]: <module '__main__' (built-in)>
 
 好了，基本工作已经准备妥当，接下来可以运行python程序了。有两种方式，一种是在命令行下面的交互，另外一种是以```python xxx.py```的方式运行。在说明这两种方式前，需要先介绍下python程序运行相关的几个结构。
 
-##1.3 Python运行相关数据结构
+## 1.3 Python运行相关数据结构
 python运行相关数据结构主要由PyCodeObject，PyFrameObject以及PyFunctionObject。其中PyCodeObject是python字节码的存储结构，编译后的pyc文件就是以PyCodeObject结构序列化后存储的，运行时加载并反序列化为PyCodeObject对象。PyFrameObject是对栈帧的模拟，当进入到一个新的函数时，都会有PyFrameObject对象用于模拟栈帧操作。PyFunctionObject则是函数对象，一个函数对应一个PyCodeObject,在执行```def test():```语句的时候会创建PyFunctionObject对象。可以这样认为，PyCodeObject是一种静态的结构，python源文件确定，那么编译后的PyCodeObject对象也是不变的；而PyFrameObject和PyFunctionObject是动态结构，其中的内容会在运行时动态变化。
 
 ### PyCodeObject对象
@@ -67,7 +67,7 @@ python程序的字节码指令以及一些静态信息比如常量等都存储�
 
 ```
 #示例代码test2.py
-i = 123                                                                                                                                                       
+i = 123
 
 def test():
   i = 'hello world'
@@ -80,7 +80,7 @@ print i #2
 ### PyFunctionObject对象
 PyFunctionObject是函数对象，在创建函数的指令MAKE_FUNCTION中构建。PyFunctionObject中有个func_code字段指向该函数对应的PyCodeObject对象，另外还有func_globals指向global名字空间，注意到这里并没有使用local名字空间。调用函数时，会创建新的栈帧对象PyFrameObject来执行函数，函数调用关系通过栈帧对象PyFrameObject中的f_back字段进行关联。最终执行函数调用时，PyFunctionObject对象的影响已经消失，真正起作用的是PyFunctionObject的PyCodeObject对象和global名字空间，因为在创建函数栈帧时会将这两个参数传给PyFrameObject对象。
 
-##1.4 Python程序运行过程浅析
+## 1.4 Python程序运行过程浅析
 说完几个基本对象，现在回到之前的话题，开始准备执行python程序。两种方式交互式和直接```python xxx.py```虽然有所不同，但最终归于一处，就是启动虚拟机执行python字节码。这里以```python xxx.py```方式为例，在运行python程序之前，需要对源文件编译成字节码，创建PyCodeObject对象。这个是通过PyAST_Compile函数实现的，至于具体编译流程，这就要参看《编译原理》那本龙书了，这里暂时当做黑盒好了，因为单就编译这部分而言，一时半会也说不清楚（好吧，其实是我也没有学好编译原理）。编译后得到PyCodeObject对象，然后调用```PyEval_EvalCode(co, globals, locals)```函数创建PyFrameObject对象并执行字节码了。注意到参数里面的co是PyCodeObject对象，而由于运行PyEval_EvalCode时创建的栈帧对象是Python创建的第一个PyFrameObject对象，所以f_back为NULL，而且它的globals和locals就是```__main__```模块的字典对象。如果我们不是直接运行，而是导入一个模块的话，则还会将python源码编译后得到的PyCodeObject对象保存到pyc文件中，下次加载模块时如果这个模块没有改动过就可以直接从pyc文件中读取内容而不需要再次编译了。
 
 执行字节码的过程就是模拟CPU执行指令的过程一样，先指向PyFrameObject的f_code字段对应的PyCodeObject对象的co_code字段，这就是字节码存储的位置，然后取出第一条指令，接着第二条指令...依次执行完所有的指令。python中指令长度为1个字节或者3个字节，其中无参数的指令长度是1个字节，有参数的指令长度是3个字节（指令1字节+参数2字节）。
@@ -89,7 +89,7 @@ python虚拟机的进程，线程，栈帧对象等关系如下图所示：
 
 ![py.png](http://upload-images.jianshu.io/upload_images/286774-d8cce06585f5aec7.png)
 
-#2 Python程序运行实例说明
+# 2 Python程序运行实例说明
 程序猿学习一门新的语言往往都是从hello world开始的，一来就跟世界打个招呼，因为接下来就要去面对程序语言未知的世界了。我学习python也是从这里开始的，只是以前并不去深究它的执行原理，这回是逃不过去了。看看下面的栗子。
 
 ```
@@ -114,7 +114,7 @@ In [1]: source = open('test3.py').read()
 In [2]: co = compile(source, 'test3.py', 'exec')
 
 In [3]: co.co_consts
-Out[3]: 
+Out[3]:
 (1,
  'hello world',
  <code object test at 0x1108eaaf8, file "run.py", line 4>,
@@ -128,7 +128,7 @@ In [5]: dis.dis(co) ##模块本身的字节码，下面说的整数，字符串�
   1           0 LOAD_CONST               0 (1) # 加载常量表中的第0个常量也就是整数1到栈中。
               3 STORE_NAME               0 (i) # 获取变量名i，出栈刚刚加载的整数1，然后存储变量名和整数1到f->f_locals中，这个字段对应着查找名字时的local名字空间。
 
-  2           6 LOAD_CONST               1 ('hello world') 
+  2           6 LOAD_CONST               1 ('hello world')
 
               9 STORE_NAME               1 (s)  #同理，获取变量名s，出栈刚刚加载的字符串hello world，并存储变量名和字符串hello world的对应关系到local名字空间。
 
@@ -140,14 +140,14 @@ In [5]: dis.dis(co) ##模块本身的字节码，下面说的整数，字符串�
              24 LOAD_CONST               3 ('__main__')
              27 COMPARE_OP               2 (==)  ##比较指令
              30 JUMP_IF_FALSE           11 (to 44) ##如果不相等则直接跳转到44对应的指令处，也就是下面的POP_TOP。因为在COMPARE_OP指令中，会设置栈顶为比较的结果，所以需要出栈这个比较结果。当然我们这里是相等，所以接着往下执行33处的指令，也是POP_TOP。
-             33 POP_TOP             
+             33 POP_TOP
 
  10          34 LOAD_NAME                2 (test) ##加载函数对象
              37 CALL_FUNCTION            0  ##调用函数
              40 POP_TOP                     ##出栈函数返回值
              41 JUMP_FORWARD             1 (to 45) ##前进1步，注意是下一条指令地址+1，也就是44+1=45
-        >>   44 POP_TOP             
-        >>   45 LOAD_CONST               4 (None) 
+        >>   44 POP_TOP
+        >>   45 LOAD_CONST               4 (None)
              48 RETURN_VALUE     #返回None
 
 
@@ -156,14 +156,14 @@ In [6]: dis.dis(co.co_consts[2])  ##查看函数test的字节码
               3 STORE_FAST               0 (k) #STORE_FAST与STORE_NAME不同，它是存储到PyFrameObject的f_localsplus中，不是local名字空间。
 
   6           6 LOAD_FAST                0 (k) #相对应的，LOAD_FAST是从f_localsplus取值
-              9 PRINT_ITEM          
-             10 PRINT_NEWLINE         #打印输出 
+              9 PRINT_ITEM
+             10 PRINT_NEWLINE         #打印输出
 
   7          11 LOAD_GLOBAL              0 (s) #因为函数没有使用local名字空间，所以，这里不是LOAD_NAME,而是LOAD_GLOBAL，不要被名字迷惑，它实际上会依次搜索global，builtin名字空间。
-             14 PRINT_ITEM          
-             15 PRINT_NEWLINE       
+             14 PRINT_ITEM
+             15 PRINT_NEWLINE
              16 LOAD_CONST               0 (None)
-             19 RETURN_VALUE        
+             19 RETURN_VALUE
 
 ```
 
@@ -175,7 +175,7 @@ In [6]: dis.dis(co.co_consts[2])  ##查看函数test的字节码
 
 ```
  ... #test3.py的代码
- 
+
 if __name__ == "__main__":
     test()
  	print locals() == sys.modules['__main__'].__dict__ # True
@@ -186,13 +186,13 @@ if __name__ == "__main__":
 
 ```
 #test4.py
-def g():                                                                                                                                                     
+def g():
   print 'function g'
-  f() 
+  f()
 
 def f():
   print 'function f'
 
 g()
-~      
+~
 ```

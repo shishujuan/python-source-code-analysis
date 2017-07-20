@@ -1,15 +1,15 @@
-#Python源码剖析笔记2-Python整数对象
+# Python源码剖析笔记2-Python整数对象
 
 > 千里之行始于足下，从简单的类别开始分析，由浅入深也不至于自己丧失信心。先来看看Python整数对象，也就是python中的PyIntObject对象，对应的类型对象是PyInt_Type。
 
-##1 Python整数对象概览
+## 1 Python整数对象概览
 为了性能考虑，python中对小整数有专门的缓存池，这样就不需要每次使用小整数对象时去用malloc分配内存以及free释放内存。python2.5.6中默认小整数的范围为[-5, 257)，你也可以修改这个范围并重新编译Python。
 
 小整数有缓存池，那么小整数之外的大整数怎么避免重复分配和回收内存呢？Python的方案是PyIntBlock。PyIntBlock这个结构就是一块内存，里面保存PyIntObject对象。一个PyIntBlock默认存放N_INTOBJECTS对象，2.5.6版本在32位ubuntu中这个值为82.PyIntBlock链表通过block_list维护，每个block中都维护一个PyIntObject数组objects，block的objects可能会有些内存空闲，因此需要另外用一个free_list链表串起来这些空闲的项以方便再次使用。
 
 小整数的缓存池最终实现也是生存在block_list维护的内存上，在python初始化时，会调用_PyInt_Init函数申请内存并创建小整数对象。
 
-##2 PyIntObject和PyInt_Type
+## 2 PyIntObject和PyInt_Type
 下面看看PyIntObject和PyInt_Type的定义(在源文件Includes/intobject.h和Objects/intobject.c)。
 
 ```
@@ -72,7 +72,7 @@ PyTypeObject PyInt_Type = {
     0,                  /* tp_dict */
     0,                  /* tp_descr_get */
     0,                  /* tp_descr_set */
-    0,                  /* tp_dictoffset */                                                                                                                    
+    0,                  /* tp_dictoffset */
     0,                  /* tp_init */
     0,                  /* tp_alloc */
     int_new,                /* tp_new */
@@ -92,14 +92,14 @@ static PyNumberMethods int_as_number = {
 ```
 看了PyInt_Type定义，发现主要就是对象头部初始化以及对一些函数的初始化设置。如int_compare是PyIntObject对象的比较函数，而int_print是打印PyIntObject的函数等。此外，还有个很重要的初始化的地方是int_as_number，这个结构定义了一个对象作为数值对象时的操作信息。如int_add，int_sub等用来执行整数加减。
 
-##3 PyIntObject创建和相关函数
+## 3 PyIntObject创建和相关函数
 python中为PyIntObject对象创建主要提供了3个函数，如下所示。这三个函数分别从字符串，unicode对象以及long值生成PyIntObject对象。其中PyInt_FromUnicode最终调用PyInt_FromString，而PyInt_String最终调用PyInt_FromLong函数，因此我这里先简单分析下PyInt_FromLong函数。
 
 ```
 //Includes/intobject.h中
 (PyObject *) PyInt_FromString(char*, char**, int);
 (PyObject *) PyInt_FromUnicode(Py_UNICODE*, Py_ssize_t, int);
-(PyObject *) PyInt_FromLong(long);   
+(PyObject *) PyInt_FromLong(long);
 ```
 
 ```
@@ -114,16 +114,16 @@ PyInt_FromLong(long ival)
 #ifdef COUNT_ALLOCS
         if (ival >= 0)
             quick_int_allocs++;
-        else 
+        else
             quick_neg_int_allocs++;
 #endif
         return (PyObject *) v;
-    }    
+    }
 #endif
     if (free_list == NULL) { //PyIntBlock的objects没有空闲空间或者第一次分配时，调用fill_free_list函数分配PyIntBlock
-        if ((free_list = fill_free_list()) == NULL)                                                                                                            
+        if ((free_list = fill_free_list()) == NULL)
             return NULL;
-    }    
+    }
     /* Inline PyObject_New */
     v = free_list;
     free_list = (PyIntObject *)v->ob_type; //更新free_list,指向PyIntBlock的objects的下一个对象
@@ -158,11 +158,11 @@ fill_free_list(void)
     p = (PyIntObject *) PyMem_MALLOC(sizeof(PyIntBlock));
     if (p == NULL)
         return (PyIntObject *) PyErr_NoMemory();
-     
-     /*通过next指针链接PyIntBlock，最新分配的插入到链表头部，block_list总是指向最新分配的PyIntBlock*/   
+
+     /*通过next指针链接PyIntBlock，最新分配的插入到链表头部，block_list总是指向最新分配的PyIntBlock*/
     ((PyIntBlock *)p)->next = block_list;
     block_list = (PyIntBlock *)p;
-    
+
     /* Link the int objects together, from rear to front, then return
        the address of the last int object in the block.
        将PyIntBlock的objects数组转换为单向链表，从后往前通过ob_type连接，并返回最后一个对象。
@@ -176,7 +176,7 @@ fill_free_list(void)
 }
 
 int
-_PyInt_Init(void)                                                                                                                                              
+_PyInt_Init(void)
 {
     PyIntObject *v;
     int ival;
@@ -195,11 +195,11 @@ _PyInt_Init(void)
     return 1;
 }
 
-static void 
+static void
 int_dealloc(PyIntObject *v)
 {
     if (PyInt_CheckExact(v)) {
-        v->ob_type = (struct _typeobject *)free_list;                                                                                                       
+        v->ob_type = (struct _typeobject *)free_list;
         free_list = v; //修改free_list
     }
     else
@@ -209,7 +209,7 @@ int_dealloc(PyIntObject *v)
 
 ```
 
-##4 调试PyIntObject
+## 4 调试PyIntObject
 按照《Python源码剖析》中的方法，可以打印出一些调试信息。先是修改int_print函数对象，来打印小整数对象和block_list,free_list等相关信息。修改Objects/intobject.c中的int_print函数，代码如下：
 
 ```
@@ -225,8 +225,8 @@ static int values[10];static PyIntObject** addr[10];static int refcounts[10];
 通过测试可以发现，a和b虽然值都是-12345，但是他们是两个不同的对象，地址也不一样。c和d都是-5，但是由于小整数缓存机制，所以c和d的地址是一样，是同一个对象。同时我们可以观察到小整数中-5到2这8个整数的地址是从高到低的，相隔12个字节，这也就验证了objects数组是从后往前通过ob_type字段连接成链表的。
 
 另外，我们可以用id(xxx)来获取对象的地址(当然这个地址是指逻辑地址)，比如上面例子中的id(d)的结果就0x9414f80。id对应的代码在Python/bltinmodule.c的builtin_id(PyObject *self, PyObject *v)函数，其功能就是打印出python对象的地址。同理，id(int)就是PyInt_Type类型对象的地址。
-                                                                                                                     
-##5 总结
+
+## 5 总结
 
 简单总结下，Python维护多个PyIntBlock对象，一个PyIntBlock中存储多个整数。PyIntBlock之间通过链表连接,最新分配的PyIntBlock加入在链表首部，block_list为链表首部。而PyIntBlock中的整数对象数组objects通过ob_type指针从后往前链接，freelist为该链表首部，即objects数组的最后一个对象。
 
