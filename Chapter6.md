@@ -1,4 +1,4 @@
-#Python源码剖析笔记6-函数机制
+# Python源码剖析笔记6-函数机制
 > Python的函数机制是很重要的部分，很多时候用python写脚本，就是几个函数简单解决问题，不需要像java那样必须弄个class什么的。
 
 # 1 函数对象PyFunctionObject
@@ -28,7 +28,7 @@ f()
 ```
 如上面例子func.py，该文件编译后对应2个```PyCodeObject```对象，一个是func.py本身，一个是函数f。而PyFunctionObject则是在执行字节码```def f():```时通过```MAKE_FUNCTION```指令生成。创建PyFunctionObject对象时，会将函数f对应的PyCodeObject对象和当前PyFrameObject对象传入作为参数，最终也就是赋值给PyFunctionObject中的func_code和func_globals字段了。在调用函数时，会将```PyFunctionObject```对象传入到```fast_function```函数中，最终根据PyFunctionObject对象的func_code和func_globals字段构建新的栈帧对象```PyFrameObject```，然后调用```PyEval_EvalFrameEx```在新的栈帧中执行函数字节码。其中PyEval_EvalFrameEx函数在之前的Python执行原理中有提到过，当时提到的```PyEval_EvalCodeEx```函数其实也是创建了新的栈帧对象PyFrameObject然后执行PyEval_EvalFrameEx函数。
 
-#2 函数调用栈帧
+# 2 函数调用栈帧
 函数调用通过栈帧来建立关联，每个被调用函数的栈帧```PyFrameObject```会通过f_back指针指向调用函数。而local，global以及builtin名字空间，local名字空间针对新的栈帧是全新的，而global名字空间则是由创建PyFrameObject时从PyFunctionObject传递过来。builtin名字空间则是共享调用者栈帧的（如果该栈帧是初始栈帧，则会先获取builtin字典用于设置PyFrameObject的f_builtins字段）。
 
 这里可以回顾一下C语言中的函数调用的栈帧关系。如下面的代码，对应的栈帧结构如图所示。在调用函数时，会先把函数参数会压入当前函数的栈帧中，每个函数都有自己的栈帧，由于esp会变化，所以其他函数会通过ebp来索引函数参数。
@@ -120,7 +120,7 @@ In [5]: dis.dis(co.co_consts[0])
 
 ![图3 函数参数位置变化](http://upload-images.jianshu.io/upload_images/286774-7cc3a13e94db4d27.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
-#3 函数执行时名字空间
+# 3 函数执行时名字空间
 还是看第一节中给的例子func.py，其对应的字节码如下，其实定义函数```def f():```就是用函数对应的PyCodeObject和栈帧对应的f_globals构建PyFunctionObject对象，然后通过STORE_NAME指令将PyFunctionObject对象与函数名f关联并存储到local名字空间。函数f对应的PyCodeObject可以通过co.co_consts[0]获取并查看。
 
 ```
@@ -149,7 +149,7 @@ In [10]: dis.dis(co.co_consts[0])
 
 之前有说过python中分为local，global，builtin名字空间，函数执行时的名字空间略有不同。其global名字空间我们可以看到是通过PyFunctionObject从上一层栈帧传递来的，而local名字空间则是赋值为NULL，也就是函数中并没有用到local名字空间，那么问题来了，函数中的那些局部变量是怎么访问到的呢？那其实在函数中局部变量是通过LOAD_FAST指令(这个指令下一节会分析)来访问的，也就是说它访问的是f_localsplus的内存空间，不需要动态查找f_locals这个PyDictObject，静态的方法可以提供效率。
 
-#4 函数参数
+# 4 函数参数
 Python中函数参数分为位置参数，键参数以及扩展位置参数和扩展键参数。位置参数就是之前我们例子中的参数，而键参数则是在调用函数指定参数的值。而扩展位置参数和扩展键参数格式则是类似```*lst```和```**kwargs```。位置参数还能设置默认值，如果有默认值，默认值是在```MAKE_FUNCTION```指令赋值给func_defaults的。
 
 下面的例子可以看到这几种参数的用法。扩展位置参数在python内部是通过一个元组对象存储的，不管最终传递了几个参数。而扩展键参数在python内部则是通过一个字典对象存储的。对于像 ```def f(a, b, *lst):```这样的函数，如果调用函数时参数为```f(1,2,3,4)```，其实在PyCodeObject对象中的```co_argcount=2, co_nlocals=3```。co_argcount是位置参数的个数，而co_nlocals是局部变量数目，包括位置参数在内。
@@ -177,7 +177,7 @@ f() #打印[3,3]
 ```
 最后还要提到的一点的是，函数参数默认值是在定义函数时设置的。如例子中的params3.py所示，如果指定了参数默认值，而调用函数时又没有覆盖默认值，则容易出现问题。要解决这个问题，可以在函数f中加个判断```if lst: lst = []```。
 
-#5 闭包和装饰器
+# 5 闭包和装饰器
 之前提到过，PyCodeObject中有两个字段与闭包相关，分别是co_cellvars和co_freevars。其中co_cellvars通常是一个元组，里面保存的是嵌套作用域中使用的变量名集合，而co_freevars也通常是一个元组，里面保存的是外层作用域中的变量名集合。如下面这个闭包的例子，有三个PyCodeObject对象，closure.py本身，函数get_func以及inner_func分布对应一个PyCodeObject。其中get_func的PyCodeObject中的co_cellvars值是元组('value',)，同时，inner_func的PyCodeObject的co_freevars存储的内容也是变量名value。
 ```
 #closure.py 闭包
@@ -211,7 +211,7 @@ if __name__ == "__main__":
 ```
 更多装饰器介绍，参见vamei的这篇文章 [Python深入05 装饰器](http://www.cnblogs.com/vamei/archive/2013/02/16/2820212.html)
 
-#6 参考资料
+# 6 参考资料
 - 《python源码剖析》 主要例子和原理都是参照本书
 - [Python快速教程](http://www.cnblogs.com/vamei/archive/2012/09/13/2682778.html)
 - 宋劲松 《Linux C语言一站式编程》
